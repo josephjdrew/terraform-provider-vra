@@ -732,6 +732,23 @@ func updateDeploymentWithNewBlueprint(ctx context.Context, d *schema.ResourceDat
 		blueprintContent = v.(string)
 	}
 
+	// Use GetRawConfig to distinguish between values in the user's configuration of the resource vs state.
+	// This allows for migration between using blueprint_id and blueprint_content when values are already present (user specified config takes precedence).
+	configValue := d.GetRawConfig()
+
+	configHasBlueprintID := !configValue.GetAttr("blueprint_id").IsNull()
+	configHasBlueprintContent := !configValue.GetAttr("blueprint_content").IsNull()
+
+	// Empty blueprintContent if the user has specified blueprintID and not blueprintContent.
+	if configHasBlueprintID && !configHasBlueprintContent{
+		blueprintContent = ""
+	}
+
+	// Empty blueprintID if the user has specified blueprintContent and not blueprintID.
+	if configHasBlueprintContent && !configHasBlueprintID{
+		blueprintID = ""
+	}
+
 	if blueprintID != "" && blueprintContent != "" {
 		if blueprintID == "inline-blueprint" {
 			blueprintID = ""
