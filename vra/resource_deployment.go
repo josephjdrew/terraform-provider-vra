@@ -116,6 +116,7 @@ func resourceDeployment() *schema.Resource {
 			"inputs": {
 				Type:        schema.TypeMap,
 				Optional:    true,
+				Computed:    true,
 				Description: "Inputs provided by the user. For inputs including those with default values, refer to inputs_including_defaults.",
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
@@ -247,7 +248,7 @@ func resourceDeploymentCreate(ctx context.Context, d *schema.ResourceData, m int
 				return diag.FromErr(err)
 			}
 		}
-		catalogItemRequest.Inputs = inputs
+		catalogItemRequest.Inputs = reinjectMissingPropertyKeys(inputs, d)
 
 		if v, ok := d.GetOk("description"); ok {
 			catalogItemRequest.Reason = v.(string)
@@ -311,7 +312,7 @@ func resourceDeploymentCreate(ctx context.Context, d *schema.ResourceData, m int
 				}
 			}
 		}
-		blueprintRequest.Inputs = inputs
+		blueprintRequest.Inputs = reinjectMissingPropertyKeys(inputs, d)
 
 		if v, ok := d.GetOk("reason"); ok {
 			blueprintRequest.Reason = v.(string)
@@ -792,7 +793,7 @@ func updateDeploymentWithNewBlueprint(ctx context.Context, d *schema.ResourceDat
 
 	if v, ok := d.GetOk("inputs"); ok {
 		if blueprintContent != "" {
-			blueprintRequest.Inputs = expandInputs(v)
+			blueprintRequest.Inputs = reinjectMissingPropertyKeys(expandInputs(v), d)
 		} else {
 			// If the inputs are provided, get the schema from blueprint to convert the provided input values
 			// to the type defined in the schema.
@@ -800,7 +801,7 @@ func updateDeploymentWithNewBlueprint(ctx context.Context, d *schema.ResourceDat
 			if err != nil {
 				return diag.FromErr(err)
 			}
-			blueprintRequest.Inputs = inputs
+			blueprintRequest.Inputs = reinjectMissingPropertyKeys(inputs, d)
 		}
 	} else {
 		blueprintRequest.Inputs = make(map[string]interface{})
@@ -969,7 +970,7 @@ func runDeploymentUpdateAction(ctx context.Context, d *schema.ResourceData, apiC
 	}
 
 	reason := "Updated deployment inputs from vRA provider for Terraform."
-	err = runAction(ctx, d, apiClient, deploymentUUID, actionID, inputs, reason)
+	err = runAction(ctx, d, apiClient, deploymentUUID, actionID, reinjectMissingPropertyKeys(inputs, d), reason)
 	if err != nil {
 		return err
 	}

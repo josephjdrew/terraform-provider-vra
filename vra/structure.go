@@ -10,6 +10,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/vmware/vra-sdk-go/pkg/models"
 )
 
@@ -167,4 +168,26 @@ func flattenContentDefinition(contentDefinition *models.ContentDefinition) inter
 	definition := make([]interface{}, 0)
 	definition = append(definition, helper)
 	return definition
+}
+
+// Restore keys quietly dropped during TypeMap normalisation.
+func reinjectMissingPropertyKeys(inputs map[string]interface{}, d *schema.ResourceData) map[string]interface{} {
+	raw := d.GetRawConfig()
+	if raw.IsNull() {
+		return inputs
+	}
+	rawInputs := raw.GetAttr("inputs")
+	if !rawInputs.IsKnown() || rawInputs.IsNull() {
+		return inputs
+	}
+	if inputs == nil {
+		inputs = make(map[string]interface{})
+	}
+	for it := rawInputs.ElementIterator(); it.Next(); {
+		k, _ := it.Element()
+		if _, ok := inputs[k.AsString()]; !ok {
+			inputs[k.AsString()] = ""
+		}
+	}
+	return inputs
 }
